@@ -10,10 +10,76 @@ class EadTag():
 		self.value = value
 		self.attributes = attributes
 
-	def output_ead(self):
-		e = Element(self.tagname)
-		e.text = self.value
+	def title_element_in_value(self):
+		if '<title' in self.value:
+			return True
+		else:
+			return False
+
+	def process_titles(self):
+		'''Chops value into parts, plain text sections and Title elements and adds them to a list'''
+		value = self.value
+		value_elements = []
+		while len(value) > 0:
+			if '<title' in value:
+				if value.startswith('<title'):
+					#isolate title snippet to create title object
+					try:
+						title_slice = value[0:value.index("</title>")]
+					except ValueError:
+						print('Closing title tag not found in ' + self.value)
+						raise SystemExit
+					value = value[value.index("</title>") + 8:] #remove closing tag from remainder of title
+					render = ''
+					try:
+						if 'render' in title_slice:
+							if 'render=”' in title_slice:
+								r_index = title_slice.index('render=”') + 8
+								end_r_index = title_slice.index('”', r_index)
+								render = title_slice[r_index:end_r_index]
+							elif 'render=\"' in title_slice:
+								r_index = title_slice.index('render=\"') + 8
+								end_r_index = title_slice.index('\"', r_index)
+								render = title_slice[r_index:end_r_index]
+					except ValueError:
+						print('render=” or render=\" not found in ' + self.value)
+					title_slice = title_slice[title_slice.index('>')+1:]
+					value_elements.append(Title(title_slice, render))
+				else:
+					#create text snippet and append to element list
+					try:
+						value_elements.append(value[:value.index("<title")])
+						value = value[value.index("<title"):]
+					except ValueError:
+						print(self.value)
+			else:
+				value_elements.append(value)
+				value = ''
+		return value_elements
+
+	def build_complex_value(self, element_tag):
+		value_elements = self.process_titles()
+		e = Element(element_tag)
+		current_element = e
+		for vp in value_elements:
+			if current_element == e and vp.__class__.__name__.lower() != "title":
+				e.text = vp
+			else:
+				if vp.__class__.__name__.lower() == "title":
+					current_element = vp.output_ead()
+					e.append(current_element)
+				else:
+					current_element.tail = vp
 		return e
+
+
+	def output_ead(self):
+		if self.title_element_in_value:
+			return build_complex_value(self.tagname)
+		else:
+			e = Element(self.tagname)
+			e.text = self.value
+			return e
 
 class Container(EadTag):
 	def __init__(self, value, container_type, label="mixed materials"):
@@ -23,7 +89,7 @@ class Container(EadTag):
 		self.label = label.lower()
 
 	def output_ead(self):
-		e = Element('container', {'type':self.container_type})
+		e = Element(self.tagname, {'type':self.container_type})
 		e.text = self.value
 		#only add container label for top level container types
 		if self.container_type == "Box" or self.container_type == "Oversize" or self.container_type == "Digital_file":
@@ -39,7 +105,7 @@ class UnitDate(EadTag):
 		self.label = label
 
 	def output_ead(self):
-		e = Element('unitdate')
+		e = Element(self.tagname)
 		e.text = self.value
 		if self.datetype is not None:
 			e.set("type", self.datetype)
@@ -54,62 +120,11 @@ class UnitTitle(EadTag):
 		self.tagname = self.__class__.__name__.lower()
 		self.value = value
 
-	def title_element_in_value(self):
-		if '<title' in self.value:
-			return True
-		else:
-			return False
-
-	def build_complex_unittitle(self):
-		title = self.value
-		unittitle_elements = []
-		e = Element('unittitle')
-		while len(title) > 0:
-			if self.title_element_in_value:
-				if title.startswith('<title'):
-					#isolate title snippet to create title object
-					try:
-						title_slice = title[0:title.index("</title>")]
-					except ValueError:
-						print('Closing title tag not found in ' + self.value)
-						raise SystemExit
-					title = title[title.index("</title>") + 8:] #remove closing tag from remainder of title
-					render = ''
-					try:
-						if 'render' in title_slice:
-							r_index = title_slice.index('render=”') + 8
-							end_r_index = title_slice.index('”', r_index)
-							render = title_slice[r_index:end_r_index]
-					except ValueError:
-						print('render=” not found in ' + self.value)
-					title_slice = title_slice[title_slice.index('>')+1:]
-					unittitle_elements.append(Title(title_slice, render))
-				else:
-					#create text snippet and append to element list
-					unittitle_elements.append(title[:title.index("<title")])
-					title = title[title.index("<title"):]
-			else:
-				unittitle_elements.append(title)
-				title = ''
-		current_element = e
-		for tp in unittitle_elements:
-			if current_element == e and tp.__class__.__name__.lower() != "title":
-				e.text = tp
-			else:
-				if tp.__class__.__name__.lower() == "title":
-					current_element = tp.output_ead()
-					e.append(current_element)
-				else:
-					current_element.tail = tp
-		return e
-
-
-
 	def output_ead(self):
 		if self.title_element_in_value():
-			return self.build_complex_unittitle()
+			return self.build_complex_value(self.tagname)
 		else:
-			e = Element('unittitle')
+			e = Element(self.tagname)
 			e.text = self.value
 			return e
 
@@ -130,18 +145,20 @@ class Title(EadTag):
 
 class Note(EadTag):
 	def __init__(self, value, note_header):
+		self.tagname = 'odd'
 		self.value = value
 		self.note_header = note_header
 
 	def output_ead(self):
-		e = Element('odd')
+		e = Element(self.tagname)
 		header = SubElement(e, 'head')
 		header.text = self.note_header
-		note = SubElement(e, 'p')
-		note.text = self.value
+		if self.title_element_in_value():
+			e.append(self.build_complex_value('p'))
+		else:
+			note = SubElement(e, 'p')
+			note.text = self.value
 		return e
-
-
 
 class ComponentEntry(EadTag):
 	def __init__(self, component_elements=None):
@@ -290,7 +307,7 @@ class ContainerListData():
 
 		indent(root)
 		tree = ElementTree(root)
-		tree.write(outputfile, encoding='utf-8')
+		tree.write(outputfile, encoding='utf8')
 
 def indent(elem, level=0):
 	i = "\n" + level*"  "
