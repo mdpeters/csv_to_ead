@@ -215,29 +215,37 @@ class ContainerListData():
 		self.valid_header_vals = ['level', 'level_type', 'unittitle', 'unitid', 'date', 'begin_date', 'end_date', 'box', 'folder', 'oversize', 'digital_file', 'instance_type', 'general_note', 'accessrestrict', 'userestrict', 'scopecontent']
 		self.header_index = {}
 		self.header = None
+
 		with open(inputfile, 'rt', encoding="utf8") as f:
-			reader = csv.reader(f, dialect='excel')
-			for i, r in enumerate(reader):
-				# if header row, set that to header variable
-				if i == 0:
-					self.header = r
-					self.translate_legacy_headers()
-					self.validate_header_values()
-				# otherwise set to row data, ignore blank rows
-				# it is assumed the first column will either be level or level_name which should always have a value
-				else:
-					if r[0].strip() != "":
-						clean_row = []
-						for e in r:
-							clean_e = e.strip()
-							clean_row.append(clean_e)
-						self.rows.append(clean_row)
+			try:
+				reader = csv.reader(f, dialect='excel')
+				for i, r in enumerate(reader):
+					# if header row, set that to header variable
+					if i == 0:
+						self.header = r
+						self.translate_legacy_headers()
+						self.validate_header_values()
+					# otherwise set to row data, ignore blank rows
+					# it is assumed the first column will either be level or level_name which should always have a value
+					else:
+						if r[0].strip() != "":
+							clean_row = []
+							for e in r:
+								clean_e = e.strip()
+								clean_row.append(clean_e)
+							self.rows.append(clean_row)
+			except UnicodeDecodeError as err:
+				#Let the user know there are some pesky non-utf-8 chars in their csv 
+				messagebox.showerror("Error", "Non UTF-8 character encountered\n" + str(err))
+				raise SystemExit
 		self.set_header_value_positions()
 		self.clean_entry_values()
 
 	# validate header values and set their positions
 	def set_header_value_positions(self):
-		if not self.validate_header_values():
+		invalid = self.validate_header_values()
+		#if not self.validate_header_values():
+		if len(invalid) == 0:
 			for index, val in enumerate(self.header):
 				val = val.lower().strip()			#normalize header values by lowering case and strip extraneous white space
 				self.header_index[val] = index
@@ -251,7 +259,6 @@ class ContainerListData():
 			sys.exit()
 
 	def validate_header_values(self):
-		print('validating header values')
 		invalid_headers = []
 		if self.header is not None:
 			for val in self.header:
@@ -262,7 +269,7 @@ class ContainerListData():
 						invalid = False
 				if invalid:
 					invalid_headers.append(val)
-		print(len(invalid_headers))
+		#print(len(invalid_headers))
 		return invalid_headers
 
 	def translate_legacy_headers(self):
