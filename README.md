@@ -1,7 +1,7 @@
 ## CSV to EAD instructions
 
 ### Requirements
-* Python 2.7+ (has been tested with 2.7 and 3.6.4)
+* Python 3.x (2.7 support removed due to the addition of tkinter for error messages)
 
 ### Use
 Download or clone the script.
@@ -34,4 +34,4 @@ to the corresponding elements in the EAD:
 * scopecontent _will validate but output has not been implemented yet_
 
 The script does not construct a fully valid EAD, just the container list (the `<dsc>`
-section of the finding aid). 
+section of the finding aid).

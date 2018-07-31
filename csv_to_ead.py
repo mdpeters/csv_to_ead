@@ -1,8 +1,10 @@
 import csv
-import sys
 import argparse
+import sys
 from xml.etree.ElementTree import Element, SubElement, Comment, tostring, ElementTree
 from xml.dom import minidom
+import tkinter
+from tkinter import messagebox
 
 class EadTag():
 	def __init__(self, tagname, value, attributes=None):
@@ -28,6 +30,7 @@ class EadTag():
 						title_slice = value[0:value.index("</title>")]
 					except ValueError:
 						print('Closing title tag not found in ' + self.value)
+						messagebox.showerror("Error", 'Closing title tag not found in ' + self.value)
 						raise SystemExit
 					value = value[value.index("</title>") + 8:] #remove closing tag from remainder of title
 					render = ''
@@ -43,6 +46,8 @@ class EadTag():
 								render = title_slice[r_index:end_r_index]
 					except ValueError:
 						print('render=” or render=\" not found in ' + self.value)
+						messagebox.showerror("Error", 'render=” or render=\" not found in ' + self.value)
+						raise SystemExit
 					title_slice = title_slice[title_slice.index('>')+1:]
 					value_elements.append(Title(title_slice, render))
 				else:
@@ -52,6 +57,7 @@ class EadTag():
 						value = value[value.index("<title"):]
 					except ValueError:
 						print(self.value)
+						raise SystemExit
 			else:
 				value_elements.append(value)
 				value = ''
@@ -237,8 +243,11 @@ class ContainerListData():
 				self.header_index[val] = index
 		else:
 			print('No header values or invalid headers found, make sure first row has valid header values')
+			err_msg = "Invalid headers found: "
 			for invalid in self.validate_header_values():
 				print(invalid)
+				err_msg = err_msg + ', ' + invalid
+			messagebox.showerror("Error", err_msg)
 			sys.exit()
 
 	def validate_header_values(self):
@@ -293,7 +302,6 @@ class ContainerListData():
 			level_val = int(row[self.header_index['level']])
 			parent_index = level_val - 1
 
-			print(parent_index)
 			for e, index in self.header_index.items():
 				entry_values[e] = row[index]
 			ce = ComponentEntry(entry_values)
@@ -330,6 +338,9 @@ def main():
 	argsparser = argparse.ArgumentParser()
 	argsparser.add_argument('csv', help='csv filename (without the .csv extension)', nargs='*')
 	args = argsparser.parse_args()
+
+	root = tkinter.Tk()
+	root.withdraw()
 
 	# import container data from csv file,
 	# csv should be encoded UTF-8 to make sure there are no issues when writing XML
