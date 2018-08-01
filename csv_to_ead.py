@@ -235,7 +235,7 @@ class ContainerListData():
 								clean_row.append(clean_e)
 							self.rows.append(clean_row)
 			except UnicodeDecodeError as err:
-				#Let the user know there are some pesky non-utf-8 chars in their csv 
+				#Let the user know there are some pesky non-utf-8 chars in their csv
 				messagebox.showerror("Error", "Non UTF-8 character encountered\n" + str(err))
 				raise SystemExit
 		self.set_header_value_positions()
@@ -343,7 +343,7 @@ def main():
 	inputfile = ''
 	outputfile = ''
 	argsparser = argparse.ArgumentParser()
-	argsparser.add_argument('csv', help='csv filename (without the .csv extension)', nargs='*')
+	argsparser.add_argument('csv', help='csv filename', nargs='*')
 	args = argsparser.parse_args()
 
 	root = tkinter.Tk()
